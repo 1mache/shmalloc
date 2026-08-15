@@ -1,27 +1,48 @@
 #include <stdio.h>
 #include "shmalloc.h"
 
-#define BUFFER_SIZE Kb(1)
 #define ENTER       10
 #define ALLOC_KEY   65
 
-u8 buffer[Kb(1)];
-
-void* dumb_allocate(u64 amount)
+typedef struct
 {
-    static u8* bufferEnd = buffer;
-    if((bufferEnd - buffer) + amount > BUFFER_SIZE)
+    u64 size;
+
+} AllocHeader;
+
+typedef struct 
+{
+    byte* start;
+    byte* end;
+    u64   capacity;
+} AllocBuffer;
+
+void init_alloc_buffer(AllocBuffer* buffer, byte* resource, u64 capacity)
+{
+    buffer->start    = resource;
+    buffer->end      = resource;
+    buffer->capacity = capacity;
+}
+
+void* dumb_allocate(AllocBuffer* buffer ,u64 size_bytes)
+{
+    if((buffer->end - buffer->start) + size_bytes > buffer->capacity)
     {
-        return NULL;
+        return NULL; // don't have space for allocation of this size 
     }
     
-    u8* tmp = bufferEnd;
-    bufferEnd += amount;
+    u8* tmp = buffer->end;
+    buffer->end += size_bytes;
     return tmp;
 }
 
 int main()
 {
+    byte internal_buffer[Kb(1)];
+    AllocBuffer buffer;
+
+    init_alloc_buffer(&buffer, internal_buffer ,Kb(1));
+    
     while(TRUE)
     {
         u8 dump = getchar();
@@ -35,9 +56,9 @@ int main()
         if(ch == ALLOC_KEY)
         {
             printf("Allocating 64 bytes...");
-            u8* ptr = (u8*)stack_allocate(64);
+            byte* ptr = (byte*)dumb_allocate(&buffer, 64);
             if(ptr == NULL) printf("No more buffer space\n");
-            else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - buffer), BUFFER_SIZE);
+            else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - buffer.start), buffer.capacity);
         }
 
     }
