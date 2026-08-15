@@ -1,8 +1,7 @@
-#include <stdio.h>
-#include "types.h"
+#include "shmalloc.h"
 
 int main()
 {
-    printf("Hi Ghostie :) \n");
+    say_sum("Hi");
     return 0;
 }
