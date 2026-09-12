@@ -35,6 +35,8 @@ typedef struct
 
 } AllocHeader;
 
+#define META_SIZE sizeof(AllocHeader)
+
 typedef struct 
 {
     byte* start;
@@ -51,20 +53,17 @@ void init_alloc_buffer(AllocBuffer* buffer, byte* resource, u64 capacity)
 
 void* dumb_allocate(AllocBuffer* buffer ,u64 requested_bytes)
 {
-    u64 allocated_bytes = requested_bytes + sizeof(AllocHeader);
+    u64 allocated_bytes = requested_bytes + META_SIZE;
 
     if((buffer->end - buffer->start) + allocated_bytes > buffer->capacity)
     {
         return NULL; // don't have space for allocation of this size 
     }
     
-    // printf("Hehe, I actually allocate %ld bytes, dont tell them\n", allocated_bytes);
     u8* ret_address = buffer->end;
-    // printf("Start of my block: %lx" ,(u64)ret_address);
     // put the header at the head of the allocated block
     *((AllocHeader*)ret_address) = (AllocHeader){requested_bytes};
-    ret_address += sizeof(AllocHeader);
-    // printf("  Start of your block: %lx\n" ,(u64)ret_address);
+    ret_address += META_SIZE;
     buffer->end += allocated_bytes;
     // return the address of the start of memory right after header
     return ret_address;
@@ -76,16 +75,14 @@ void dumb_free(AllocBuffer* buffer ,void* ptr)
     if(!buffer->start || !buffer->end) return; // invalid buffer
     if(buffer->start >= buffer->end) return; // empty buffer
 
-    u8* ptr_to_alloc_block = (u8*)ptr - sizeof(AllocHeader);
+    u8* ptr_to_alloc_block = (u8*)ptr - META_SIZE;
     //  total allocated     =    requested bytes                       + header size
-    u64 allocated_bytes     = ((AllocHeader*)ptr_to_alloc_block)->size + sizeof(AllocHeader);
+    u64 allocated_bytes     = ((AllocHeader*)ptr_to_alloc_block)->size + META_SIZE;
     //  reset size
     ((AllocHeader*)ptr_to_alloc_block)->size = 0;  
     if(buffer->end - allocated_bytes < buffer->start)
     {
-        // printf("Request free of bigger size than we have: %ld\n", allocated_bytes);
         return; // something went wrong, request free of bigger size than we have
     }
-    // printf("Freeing %ld bytes", allocated_bytes);
     buffer->end -= allocated_bytes;
 }

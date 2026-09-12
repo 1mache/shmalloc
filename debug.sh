@@ -1,2 +1,2 @@
-gcc src/main.c -o out/main -std=c99 -fsanitize=address -static-libasan -g -Wall -Werror
+gcc src/main.c -o out/main -std=c99 -O1 -fno-omit-frame-pointer -fsanitize=address -static-libasan -g -Wall -Werror
 echo "Done"
