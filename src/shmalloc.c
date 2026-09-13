@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <assert.h>
 
 typedef int8_t   i8 ;
 typedef int16_t  i16;
@@ -29,10 +30,13 @@ typedef int8_t   b8;
 #define ALLOC_KEY 65
 #define FREE_KEY  66
 
+#define DEBUG_MAGIC 0x77777777
+
 typedef struct
 {
     u64 size;
-
+    struct AllocHeader* next;
+    int _debug;
 } AllocHeader;
 
 #define META_SIZE sizeof(AllocHeader)
@@ -43,6 +47,11 @@ typedef struct
     byte* end;
     u64   capacity;
 } AllocBuffer;
+
+// head of the free list
+// static AllocHeader* free_list_head = NULL;
+// last node in the free list
+// static AllocHeader* free_list_last = NULL;
 
 void init_alloc_buffer(AllocBuffer* buffer, byte* resource, u64 capacity)
 {
@@ -60,10 +69,13 @@ void* dumb_allocate(AllocBuffer* buffer ,u64 requested_bytes)
         return NULL; // don't have space for allocation of this size 
     }
     
-    u8* ret_address = buffer->end;
+    AllocHeader* ret_address = (AllocHeader*)(buffer->end);
     // put the header at the head of the allocated block
-    *((AllocHeader*)ret_address) = (AllocHeader){requested_bytes};
-    ret_address += META_SIZE;
+    *ret_address = (AllocHeader){requested_bytes, NULL};
+    ret_address->_debug = DEBUG_MAGIC;
+
+    // move 1 header forward 
+    ret_address += 1;
     buffer->end += allocated_bytes;
     // return the address of the start of memory right after header
     return ret_address;
@@ -75,7 +87,9 @@ void dumb_free(AllocBuffer* buffer ,void* ptr)
     if(!buffer->start || !buffer->end) return; // invalid buffer
     if(buffer->start >= buffer->end) return; // empty buffer
 
-    u8* ptr_to_alloc_block = (u8*)ptr - META_SIZE;
+    // go back 1 header size from given ptr
+    AllocHeader* ptr_to_alloc_block = ptr - META_SIZE;
+    assert(ptr_to_alloc_block->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     //  total allocated     =    requested bytes                       + header size
     u64 allocated_bytes     = ((AllocHeader*)ptr_to_alloc_block)->size + META_SIZE;
     //  reset size
