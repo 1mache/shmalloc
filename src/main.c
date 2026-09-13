@@ -4,7 +4,7 @@
 int main()
 {
     byte internal_buffer[Kb(1)];
-    AllocBuffer buffer;
+    MemDummyBuffer buffer;
 
     init_alloc_buffer(&buffer, internal_buffer ,Kb(1));
     

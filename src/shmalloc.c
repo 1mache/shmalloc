@@ -46,21 +46,21 @@ typedef struct
     byte* start;
     byte* end;
     u64   capacity;
-} AllocBuffer;
+} MemDummyBuffer;
 
 // head of the free list
 // static AllocHeader* free_list_head = NULL;
 // last node in the free list
 // static AllocHeader* free_list_last = NULL;
 
-void init_alloc_buffer(AllocBuffer* buffer, byte* resource, u64 capacity)
+void init_alloc_buffer(MemDummyBuffer* buffer, byte* resource, u64 capacity)
 {
     buffer->start    = resource;
     buffer->end      = resource;
     buffer->capacity = capacity;
 }
 
-void* dumb_allocate(AllocBuffer* buffer ,u64 requested_bytes)
+void* dumb_allocate(MemDummyBuffer* buffer ,u64 requested_bytes)
 {
     u64 allocated_bytes = requested_bytes + META_SIZE;
 
@@ -81,7 +81,7 @@ void* dumb_allocate(AllocBuffer* buffer ,u64 requested_bytes)
     return ret_address;
 }
 
-void dumb_free(AllocBuffer* buffer ,void* ptr)
+void dumb_free(MemDummyBuffer* buffer ,void* ptr)
 {
     if(!ptr) return;
     if(!buffer->start || !buffer->end) return; // invalid buffer
