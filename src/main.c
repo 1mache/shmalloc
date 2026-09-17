@@ -1,12 +1,18 @@
 #include <stdio.h>
 #include "shmalloc.c"
+#include "tests.c"
+
+#define BUFFER_SIZE 96
 
 int main()
 {
-    byte internal_buffer[Kb(1)];
+    test_continous_allocations();
+
+
+    byte internal_buffer[BUFFER_SIZE];
     MemDummyBuffer buffer;
 
-    init_alloc_buffer(&buffer, internal_buffer ,Kb(1));
+    init_alloc_buffer(&buffer, internal_buffer ,BUFFER_SIZE);
     
     byte* ptr = NULL;
     while(TRUE)
