@@ -8,7 +8,7 @@ int main()
 {
     test_continous_allocations();
 
-
+    printf("Buffer initialized with buffer size %ld\n", BUFFER_SIZE);
     byte internal_buffer[BUFFER_SIZE];
     MemDummyBuffer buffer;
 

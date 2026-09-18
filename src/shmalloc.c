@@ -127,7 +127,11 @@ static AllocHeader* find_free_block(u64 size)
 
 void* dumb_allocate(MemDummyBuffer* buffer ,u64 requested_bytes)
 {
-    // TODO: validate size
+    if(requested_bytes <= 0)
+    {
+        return NULL;
+    }
+    
     AllocHeader* ret_address;
     if(!free_list_head)
     {
