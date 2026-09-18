@@ -6,10 +6,6 @@
 #include <assert.h>
 #include "types.h"
 
-#define ENTER_KEY 10
-#define ALLOC_KEY 65
-#define FREE_KEY  66
-
 #define DEBUG_MAGIC 777777
 
 typedef struct MetaHeader
@@ -96,7 +92,8 @@ static MetaHeader* find_free_block(u64 size)
             // identify it as allocated
              current->_debug = DEBUG_MAGIC;
 
-            // TODO: update current header size if not null?
+            // TODO: if smaller update current header size + split?
+            // TODO: look at the next block if larger?  
             return current;
         }
         current = current->next;
@@ -105,6 +102,7 @@ static MetaHeader* find_free_block(u64 size)
     return current;
 }
 
+// TODO: allignment
 void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes)
 {
     if(requested_bytes <= 0)
@@ -158,6 +156,7 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     freed_node->_debug = 0; // to catch freed nodes
     
+    // TODO: move to alloc?
     // if node has next node that is free we can merge their blocks' free space
     if(freed_node->next && freed_node->next->free) 
     {

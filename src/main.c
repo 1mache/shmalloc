@@ -4,6 +4,10 @@
 
 #define BUFFER_SIZE 96
 
+#define ENTER_KEY 10
+#define ALLOC_KEY 65
+#define FREE_KEY  66
+
 int main()
 {
     test_continous_allocations();
