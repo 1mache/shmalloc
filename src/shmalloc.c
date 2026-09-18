@@ -162,6 +162,17 @@ void dumb_free(MemDummyBuffer* buffer ,void* ptr)
         buffer->end -= allocated_bytes;
         // we deleted last so update tail
         free_list_last = freed_node->prev;
+
+        // need to move buffer->end to the current tail
+        if(!free_list_last)
+        {
+            buffer->end = buffer->start;
+        }
+        else
+        {
+            //                                  move past header   move past block
+            buffer->end = (byte*)(free_list_last) + META_SIZE + free_list_last->size; 
+        }
     }
 
     // mark as free
