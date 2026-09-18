@@ -93,6 +93,9 @@ static MetaHeader* find_free_block(u64 size)
         if(current->free && current->size >= size)
         {
             current->free = FALSE;
+            // identify it as allocated
+             current->_debug = DEBUG_MAGIC;
+
             // TODO: update current header size if not null?
             return current;
         }
@@ -149,12 +152,28 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     {
         return; // empty buffer
     }
-
+    
     // go back 1 header size from given ptr
     MetaHeader* freed_node = (MetaHeader*)((byte*)ptr - META_SIZE);
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     freed_node->_debug = 0; // to catch freed nodes
+    
+    // if node has next node that is free we can merge their blocks' free space
+    if(freed_node->next && freed_node->next->free) 
+    {
+        MetaHeader* merged = freed_node->next;
+        merged->_debug = 0;
+        // remove it from the list
+        freed_node->next = merged->next;
+        if(freed_node->next)
+        {
+            merged->next->prev = freed_node; 
+        }
+        // merge
+        freed_node->size += META_SIZE + merged->size;  
+    }
 
+    // after merge this can be false even tho was true on previous if statement.
     // special case for last in list:
     if(!freed_node->next)
     {
@@ -163,7 +182,7 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
         buffer->end -= allocated_bytes;
         // we deleted last so update tail
         free_list_last = freed_node->prev;
-
+        
         // move free_list_last to last non free node 
         while(free_list_last && free_list_last->free)
         {
@@ -187,6 +206,18 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
 
     // mark as free
     freed_node->free = TRUE;
+}
+
+void free_all(MemBuffer* buffer)
+{
+    if(!buffer || buffer->end == buffer->start || buffer->capacity == 0)
+    {
+        // nothing to free
+        return;
+    }
+
+    buffer->end = buffer->start;
+    free_list_head = free_list_last = NULL;
 }
 
 #endif
