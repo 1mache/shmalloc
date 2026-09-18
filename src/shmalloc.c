@@ -153,7 +153,8 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     // go back 1 header size from given ptr
     MetaHeader* freed_node = (MetaHeader*)((byte*)ptr - META_SIZE);
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
-    
+    freed_node->_debug = 0; // to catch freed nodes
+
     // special case for last in list:
     if(!freed_node->next)
     {
@@ -163,36 +164,29 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
         // we deleted last so update tail
         free_list_last = freed_node->prev;
 
-        // need to move buffer->end to the current tail
+        // move free_list_last to last non free node 
+        while(free_list_last && free_list_last->free)
+        {
+            free_list_last = free_list_last->prev;
+        }
+        
+        //update buffer->end
         if(!free_list_last)
         {
+            //special case when freed the only node
             buffer->end = buffer->start;
+            free_list_head = NULL; //free list empty
         }
         else
         {
             //                                  move past header   move past block
             buffer->end = (byte*)(free_list_last) + META_SIZE + free_list_last->size; 
+            free_list_last->next = NULL; // cut off free tailing nodes
         }
     }
 
     // mark as free
     freed_node->free = TRUE;
-    MetaHeader* prevOfFreed = freed_node->prev;
-    // update pointers around node
-    if(prevOfFreed) // if not head
-    {
-        prevOfFreed->next = freed_node->next;
-    }
-    else
-    {
-        // need to update
-        free_list_head = freed_node->next;
-    }
-
-    if(freed_node->next) // if not tail
-    {
-        freed_node->next->prev = prevOfFreed;
-    }
 }
 
 #endif
