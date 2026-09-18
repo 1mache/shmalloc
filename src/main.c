@@ -8,6 +8,7 @@ int main()
 {
     test_continous_allocations();
     test_continous_different_allocations();
+    test_noncontinous_free();
 
     printf("Buffer initialized with buffer size %ld\n", (u64)BUFFER_SIZE);
     byte internal_buffer[BUFFER_SIZE];

@@ -76,22 +76,42 @@ void test_continous_different_allocations()
     printf("All freed\n");
 }
 
-// void test_noncontinous_free()
-// {
-//     byte internal_buffer[(META_SIZE + TEST_ALLOCATION)];
-//     MemDummyBuffer buffer;
-//     init_alloc_buffer(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+void test_noncontinous_free()
+{
+    printf("TEST: test_noncontinous_free\n");
+    pcg32_seed_random(time(NULL), getpid());
 
-//     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
-//     int num_ptrs = 0;
+    byte internal_buffer[TEST_BUFFER_SIZE];
+    MemDummyBuffer buffer;
+    init_alloc_buffer(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+
+    void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
+    int num_ptrs = 0;
     
-//     void* ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
-//     while(ptr)
-//     {
-//         ptrs[num_ptrs] = ptr;
-//         ++num_ptrs;
-//         ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
-//     }
+    void* ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+    while(ptr)
+    {
+        ptrs[num_ptrs] = ptr;
+        ++num_ptrs;
+        ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+    }
+    printf("%d ptrs fit into the buffer\n", num_ptrs);
 
-//     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
-// }
+    // shuffle the array
+    for(int i = 0; i < num_ptrs; ++i)
+    {
+        int j = pcg32_boundedrand(num_ptrs);
+        void* tmp = ptrs[i];
+        ptrs[i] = ptrs[j];
+        ptrs[j] = tmp;
+    }
+
+    // free in shuffled order
+    for(int i = num_ptrs-1; i >= 0; --i)
+    {
+        dumb_free(&buffer, ptrs[i]);
+    }
+
+    assert(buffer.start == buffer.end && "Buffer did not return to empty state");
+    printf("All freed\n");
+}
