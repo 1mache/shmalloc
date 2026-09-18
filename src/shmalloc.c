@@ -12,30 +12,37 @@
 
 #define DEBUG_MAGIC 777777
 
-typedef struct AllocHeader
+typedef struct MetaHeader
 {
     u64 size;
-    struct AllocHeader* prev;
-    struct AllocHeader* next;
+    struct MetaHeader* prev;
+    struct MetaHeader* next;
     int _debug;
     b8 free;
-} AllocHeader;
+} MetaHeader;
 
-#define META_SIZE sizeof(AllocHeader)
+#define META_SIZE sizeof(MetaHeader)
 
-typedef struct MemDummyBuffer
+typedef struct MemBuffer
 {
     byte* start;
     byte* end;
     u64   capacity;
-} MemDummyBuffer;
+} MemBuffer;
 
 // head of the free list
-static AllocHeader* free_list_head = NULL;
+static MetaHeader* free_list_head = NULL;
 // last node in the free list
-static AllocHeader* free_list_last = NULL;
+static MetaHeader* free_list_last = NULL;
 
-static void init_header(AllocHeader* header, u64 size)
+void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity)
+{
+    buffer->start    = resource;
+    buffer->end      = resource;
+    buffer->capacity = capacity;
+}
+
+static void meta_header_init(MetaHeader* header, u64 size)
 {
     header->size = size;
     header->next = NULL;
@@ -44,14 +51,7 @@ static void init_header(AllocHeader* header, u64 size)
     header->_debug = DEBUG_MAGIC;
 }
 
-void init_alloc_buffer(MemDummyBuffer* buffer, byte* resource, u64 capacity)
-{
-    buffer->start    = resource;
-    buffer->end      = resource;
-    buffer->capacity = capacity;
-}
-
-static AllocHeader* alloc_new_block(MemDummyBuffer* buffer, u64 requested_bytes)
+static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 requested_bytes)
 {
     u64 allocated_bytes = requested_bytes + META_SIZE;
 
@@ -61,8 +61,8 @@ static AllocHeader* alloc_new_block(MemDummyBuffer* buffer, u64 requested_bytes)
     }
 
     // start of header = current buffer tail
-    AllocHeader* returned = (AllocHeader*)buffer->end;
-    init_header(returned, requested_bytes);
+    MetaHeader* returned = (MetaHeader*)buffer->end;
+    meta_header_init(returned, requested_bytes);
     buffer->end += allocated_bytes;
 
     // update free list last
@@ -80,14 +80,14 @@ static AllocHeader* alloc_new_block(MemDummyBuffer* buffer, u64 requested_bytes)
     return returned;
 }
 
-static AllocHeader* find_free_block(u64 size)
+static MetaHeader* find_free_block(u64 size)
 {
     if(!free_list_head) 
     {
         return NULL;
     }
 
-    AllocHeader* current = free_list_head;
+    MetaHeader* current = free_list_head;
     while(current)
     {
         if(current->free && current->size >= size)
@@ -102,14 +102,14 @@ static AllocHeader* find_free_block(u64 size)
     return current;
 }
 
-void* dumb_allocate(MemDummyBuffer* buffer ,u64 requested_bytes)
+void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes)
 {
     if(requested_bytes <= 0)
     {
         return NULL;
     }
 
-    AllocHeader* ret_address;
+    MetaHeader* ret_address;
     if(!free_list_head)
     {
         ret_address = alloc_new_block(buffer, requested_bytes);
@@ -135,7 +135,7 @@ void* dumb_allocate(MemDummyBuffer* buffer ,u64 requested_bytes)
     return ret_address;
 }
 
-void dumb_free(MemDummyBuffer* buffer ,void* ptr)
+void free_buffered(MemBuffer* buffer ,void* ptr)
 {
     if(!ptr) 
     {
@@ -151,7 +151,7 @@ void dumb_free(MemDummyBuffer* buffer ,void* ptr)
     }
 
     // go back 1 header size from given ptr
-    AllocHeader* freed_node = (AllocHeader*)((byte*)ptr - META_SIZE);
+    MetaHeader* freed_node = (MetaHeader*)((byte*)ptr - META_SIZE);
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     
     // special case for last in list:
@@ -177,7 +177,7 @@ void dumb_free(MemDummyBuffer* buffer ,void* ptr)
 
     // mark as free
     freed_node->free = TRUE;
-    AllocHeader* prevOfFreed = freed_node->prev;
+    MetaHeader* prevOfFreed = freed_node->prev;
     // update pointers around node
     if(prevOfFreed) // if not head
     {

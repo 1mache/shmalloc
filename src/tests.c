@@ -12,25 +12,25 @@ void test_continous_allocations()
     printf("TEST: test_continous_allocations\n");
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemDummyBuffer buffer;
+    MemBuffer buffer;
 
-    init_alloc_buffer(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        dumb_free(&buffer, ptrs[i]);
+        free_buffered(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
@@ -48,14 +48,14 @@ void test_continous_different_allocations()
     u32 cur_alloc_size = min_alloc_size;
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemDummyBuffer buffer;
+    MemBuffer buffer;
 
-    init_alloc_buffer(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
@@ -63,13 +63,13 @@ void test_continous_different_allocations()
 
         u64 how_much = min_alloc_size + (pcg32_random() % (max_alloc_size - min_alloc_size));
         printf("Allocating %ld bytes\n", how_much); 
-        ptr = dumb_allocate(&buffer, how_much); 
+        ptr = shmalloc_buffered(&buffer, how_much); 
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        dumb_free(&buffer, ptrs[i]);
+        free_buffered(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
@@ -82,18 +82,18 @@ void test_noncontinous_free()
     pcg32_seed_random(time(NULL), getpid());
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemDummyBuffer buffer;
-    init_alloc_buffer(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    MemBuffer buffer;
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
     
-    void* ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = dumb_allocate(&buffer, TEST_ALLOCATION);
+        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
@@ -109,7 +109,7 @@ void test_noncontinous_free()
     // free in shuffled order
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        dumb_free(&buffer, ptrs[i]);
+        free_buffered(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
