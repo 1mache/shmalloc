@@ -5,7 +5,7 @@
 #include "prng.h"
 
 #define TEST_BUFFER_SIZE Kb(1)
-#define TEST_ALLOCATION 64
+#define TEST_ALLOCATION 49
 
 void test_continous_allocations()
 {
@@ -62,8 +62,13 @@ void test_continous_different_allocations()
         ++num_ptrs;
 
         u64 how_much = min_alloc_size + (pcg32_random() % (max_alloc_size - min_alloc_size));
-        printf("Allocating %ld bytes\n", how_much); 
-        ptr = shmalloc_buffered(&buffer, how_much); 
+        printf("Requested shmalloc of %ld bytes\n", how_much); 
+        byte* tmp = buffer.end;
+        ptr = shmalloc_buffered(&buffer, how_much);
+        if(ptr)
+        {
+            printf("Actually allocated %ld of data\n", (u64)(buffer.end-tmp)-META_SIZE);
+        }
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 

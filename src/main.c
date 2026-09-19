@@ -3,7 +3,7 @@
 #include "prng.h"
 #include "tests.c"
 
-#define BUFFER_SIZE 96
+#define BUFFER_SIZE 128
 
 #define ENTER_KEY 10
 #define ALLOC_KEY 65
@@ -15,7 +15,8 @@ int main()
     test_continous_different_allocations();
     test_noncontinous_free();
     test_middle_merge_reuse();
-
+    
+    printf("Meta size is %ld\n", META_SIZE);
     printf("Buffer initialized with buffer size %ld\n", (u64)BUFFER_SIZE);
     byte internal_buffer[BUFFER_SIZE];
     MemBuffer buffer;

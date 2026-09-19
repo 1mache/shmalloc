@@ -15,7 +15,8 @@ typedef struct MetaHeader
     b8 free;
 } MetaHeader;
 
-#define META_SIZE sizeof(MetaHeader)
+#define ALIGN_UP(n,a) (((n) + ((a)-1)) & ~((a)-1))
+#define META_SIZE ALIGN_UP(sizeof(MetaHeader),sizeof(void*))
 
 typedef struct MemBuffer
 {
@@ -34,6 +35,7 @@ void  free_all(MemBuffer* buffer);
 #ifdef SHMALLOC_IMPLEMENTATION
 
 #define DEBUG_MAGIC 777777
+
 // head of the free list
 static MetaHeader* free_list_head = NULL;
 // last node in the free list
@@ -140,25 +142,27 @@ static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
 }
 
 // TODO: allignment
-void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes)
+void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
 {
     if(requested_bytes <= 0)
     {
         return NULL;
     }
-
+    
+    // align to WORD size
+    u64 size = ALIGN_UP(requested_bytes, sizeof(void*));
     MetaHeader* ret_address;
     if(!free_list_head)
     {
-        ret_address = alloc_new_block(buffer, requested_bytes);
+        ret_address = alloc_new_block(buffer, size);
         // function internally updated free list
     }
     else
     {
-        ret_address = find_free_block(requested_bytes);
+        ret_address = find_free_block(size);
         if(!ret_address)
         {
-            ret_address = alloc_new_block(buffer, requested_bytes);
+            ret_address = alloc_new_block(buffer, size);
         }
     }
 
