@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include "shmalloc.c"
+#include "shmalloc.h"
+#include "prng.h"
 #include "tests.c"
 
 #define BUFFER_SIZE 96
@@ -55,3 +56,8 @@ int main()
     
     return 0;
 }
+
+#define SHMALLOC_IMPLEMENTATION
+#include "shmalloc.h"
+#define PRNG_IMPLEMENTATION
+#include "prng.h"

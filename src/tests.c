@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <unistd.h>
-#include "shmalloc.c"
-#include "prng.c"
+#include "shmalloc.h"
+#include "prng.h"
 
 #define TEST_BUFFER_SIZE Kb(1)
 #define TEST_ALLOCATION 64

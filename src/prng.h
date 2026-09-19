@@ -1,3 +1,6 @@
+#ifndef PRNG_H
+#define PRNG_H
+
 // based on http://www.pcg-random.org C Implementation.
 #include "types.h"
 
@@ -21,6 +24,9 @@ u32 pcg32_random_r(pcg32_state* rng);
 u32 pcg32_boundedrand(u32 bound);
 u32 pcg32_boundedrand_r(pcg32_state* rng, u32 bound);
 
+#endif // PRNG_H
+
+#ifdef PRNG_IMPLEMENTATION
 
 void pcg32_seed_random(u64 initstate, u64 initseq)
 {
@@ -72,3 +78,5 @@ u32 pcg32_boundedrand_r(pcg32_state* rng, u32 bound)
             return r % bound;
     }
 }
+
+#endif // PRNG_IMPLEMENTATION

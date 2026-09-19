@@ -1,12 +1,10 @@
-#ifndef SHMALLOC_C
-#define SHMALLOC_C
+#ifndef SHMALLOC_H
+#define SHMALLOC_H
 
 #include <stdio.h>
 #include <stddef.h>
 #include <assert.h>
 #include "types.h"
-
-#define DEBUG_MAGIC 777777
 
 typedef struct MetaHeader
 {
@@ -26,6 +24,16 @@ typedef struct MemBuffer
     u64   capacity;
 } MemBuffer;
 
+void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity);
+void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes);
+void free_buffered(MemBuffer* buffer ,void* ptr);
+void free_all(MemBuffer* buffer);
+
+#endif //SHMALLOC_H 
+
+#ifdef SHMALLOC_IMPLEMENTATION
+
+#define DEBUG_MAGIC 777777
 // head of the free list
 static MetaHeader* free_list_head = NULL;
 // last node in the free list
@@ -219,4 +227,4 @@ void free_all(MemBuffer* buffer)
     free_list_head = free_list_last = NULL;
 }
 
-#endif
+#endif // SHMALLOC_IMPLEMENTATION
