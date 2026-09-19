@@ -121,6 +121,60 @@ void test_noncontinous_free()
     printf("All freed\n");
 }
 
+void test_noncontinous_allocations()
+{
+    printf("TEST: test_noncontinous_allocations\n");
+    pcg32_seed_random(time(NULL), getpid());
+
+    byte internal_buffer[TEST_BUFFER_SIZE];
+    MemBuffer buffer;
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+
+    void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
+    int num_ptrs = 0;
+    
+    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    while(ptr)
+    {
+        ptrs[num_ptrs] = ptr;
+        ++num_ptrs;
+        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    }
+    printf("%d ptrs fit into the buffer\n", num_ptrs);
+
+    // shuffle the array
+    for(int i = 0; i < num_ptrs; ++i)
+    {
+        int j = pcg32_boundedrand(num_ptrs);
+        void* tmp = ptrs[i];
+        ptrs[i] = ptrs[j];
+        ptrs[j] = tmp;
+    }
+
+    int num_allocations = 3;
+    assert(num_allocations < num_ptrs && "Impossible test with this number of allocations");
+    // free in shuffled order
+    for(int i = 0; i < num_ptrs; ++i)
+    {
+        if(i % 2 == 0|| num_allocations == 0)
+        {
+            free_buffered(&buffer, ptrs[i]);
+            printf("Freed on address %lx\n", (u64)(ptrs[i]));
+            ptrs[i] = NULL;
+        }
+        else
+        {
+            num_allocations--;
+            ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+            printf("Allocation landed on address %lx\n", (u64)ptr);
+        }
+    } 
+
+    free_all(&buffer);
+    assert(buffer.start == buffer.end && "Buffer did not return to empty state");
+    printf("All freed\n");
+}
+
 void test_middle_merge_reuse()
 {
     printf("TEST: test_middle_merge_reuse\n");

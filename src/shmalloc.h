@@ -141,7 +141,6 @@ static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
     to->size = ((byte*)merged - (byte*)(to+1)) + (META_SIZE + merged->size);  
 }
 
-// TODO: allignment
 void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
 {
     if(requested_bytes <= 0)

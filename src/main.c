@@ -14,6 +14,7 @@ int main()
     test_continous_allocations();
     test_continous_different_allocations();
     test_noncontinous_free();
+    test_noncontinous_allocations();
     test_middle_merge_reuse();
     
     printf("Meta size is %ld\n", META_SIZE);
