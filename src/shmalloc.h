@@ -116,18 +116,27 @@ static MetaHeader* find_free_block(u64 size)
     return current;
 }
 
+// wipes everything in between. doesnt update freelist. callers responsiblity.
 static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
 {
     // asserts because internal function, should crash if used wrong
     assert(header0 && "mergeBlocks recieved NULL header0");
     assert(header1 && "mergeBlocks recieved NULL header1");
-    assert(header0 != header1 && "mergeBlocks recieved same header")
+    assert(header0 != header1 && "mergeBlocks recieved same header");
     
-
     MetaHeader* to     = MIN(header0, header1);
     MetaHeader* merged = MAX(header0, header1);
 
-    
+    merged->_debug = 0;
+    // remove it from the list
+    to->next = merged->next;
+    if(to->next)
+    {
+        to->next->prev = to; 
+    }
+    // merge
+    // size = all space in between headers + merged header size and merged size 
+    to->size = ((byte*)merged - (byte*)(to+1)) + (META_SIZE + merged->size);  
 }
 
 // TODO: allignment
@@ -188,16 +197,7 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     // if node has next node that is free we can merge their blocks' free space
     if(freed_node->next && freed_node->next->free) 
     {
-        MetaHeader* merged = freed_node->next;
-        merged->_debug = 0;
-        // remove it from the list
-        freed_node->next = merged->next;
-        if(freed_node->next)
-        {
-            merged->next->prev = freed_node; 
-        }
-        // merge
-        freed_node->size += META_SIZE + merged->size;  
+        mergeBlocks(freed_node, freed_node->next);
     }
 
     // after merge this can be false even tho was true on previous if statement.
