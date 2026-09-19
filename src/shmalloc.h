@@ -24,10 +24,10 @@ typedef struct MemBuffer
     u64   capacity;
 } MemBuffer;
 
-void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity);
+void  membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity);
 void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes);
-void free_buffered(MemBuffer* buffer ,void* ptr);
-void free_all(MemBuffer* buffer);
+void  free_buffered(MemBuffer* buffer ,void* ptr);
+void  free_all(MemBuffer* buffer);
 
 #endif //SHMALLOC_H 
 
@@ -48,6 +48,8 @@ void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity)
 
 static void meta_header_init(MetaHeader* header, u64 size)
 {
+    assert(size > 0 && "meta_header_init: size <= 0");
+
     header->size = size;
     header->next = NULL;
     header->prev = NULL;
@@ -55,9 +57,11 @@ static void meta_header_init(MetaHeader* header, u64 size)
     header->_debug = DEBUG_MAGIC;
 }
 
-static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 requested_bytes)
+static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 size)
 {
-    u64 allocated_bytes = requested_bytes + META_SIZE;
+    assert(size > 0 && "alloc_new_block: size <= 0");
+
+    u64 allocated_bytes = size + META_SIZE;
 
     if((buffer->end - buffer->start) + allocated_bytes > buffer->capacity)
     {
@@ -66,7 +70,7 @@ static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 requested_bytes)
 
     // start of header = current buffer tail
     MetaHeader* returned = (MetaHeader*)buffer->end;
-    meta_header_init(returned, requested_bytes);
+    meta_header_init(returned, size);
     buffer->end += allocated_bytes;
 
     // update free list last
@@ -86,6 +90,8 @@ static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 requested_bytes)
 
 static MetaHeader* find_free_block(u64 size)
 {
+    assert(size > 0 && "find_free_block: size <= 0");
+
     if(!free_list_head) 
     {
         return NULL;
@@ -108,6 +114,20 @@ static MetaHeader* find_free_block(u64 size)
     }
 
     return current;
+}
+
+static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
+{
+    // asserts because internal function, should crash if used wrong
+    assert(header0 && "mergeBlocks recieved NULL header0");
+    assert(header1 && "mergeBlocks recieved NULL header1");
+    assert(header0 != header1 && "mergeBlocks recieved same header")
+    
+
+    MetaHeader* to     = MIN(header0, header1);
+    MetaHeader* merged = MAX(header0, header1);
+
+    
 }
 
 // TODO: allignment
