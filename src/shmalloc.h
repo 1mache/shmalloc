@@ -34,6 +34,7 @@ void  free_all(MemBuffer* buffer);
 
 #ifdef SHMALLOC_IMPLEMENTATION
 
+#define MIN_ALLOC_SIZE 32
 #define DEBUG_MAGIC 777777
 
 // head of the free list
@@ -108,7 +109,27 @@ static MetaHeader* find_free_block(u64 size)
             // identify it as allocated
              current->_debug = DEBUG_MAGIC;
 
-            // TODO: if smaller update current header size + split?
+
+            // need to split?
+            if((current->size - size) > MIN_ALLOC_SIZE + META_SIZE)
+            {
+                // node that holds rest of space
+                MetaHeader* rest = (MetaHeader*)((byte*)current + META_SIZE + current->size);
+                meta_header_init(rest, current->size - size);
+                
+                // add new node to list
+                rest->prev = current;
+                if(current->next)
+                {
+                    current->next->prev = rest;
+                }
+                current->next = rest;
+
+                // update size
+                current->size = size;
+            }
+
+            
             // TODO: look at the next block if larger?  
             return current;
         }

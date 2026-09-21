@@ -231,3 +231,28 @@ void test_middle_merge_reuse()
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
 }
+
+void test_block_split()
+{
+    printf("TEST: test_block_split\n");
+    byte internal_buffer[TEST_BUFFER_SIZE];
+    MemBuffer buffer;
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    
+    void* ptr = shmalloc_buffered(&buffer, TEST_BUFFER_SIZE - META_SIZE);
+    free_buffered(&buffer, ptr);
+
+    int num_ptrs = 0;
+    ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    while(ptr)
+    {
+        ++num_ptrs;
+        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    }
+    printf("%d ptrs fit into the buffer thanks to splitting\n", num_ptrs);
+
+
+    free_all(&buffer);
+    assert(buffer.start == buffer.end && "Buffer did not return to empty state");
+    printf("All freed\n");
+}
