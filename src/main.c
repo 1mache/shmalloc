@@ -16,6 +16,7 @@ int main()
     test_noncontinous_free();
     test_noncontinous_allocations();
     test_middle_merge_reuse();
+    test_block_merge(); 
     test_block_split();
     
     printf("Meta size is %ld\n", META_SIZE);

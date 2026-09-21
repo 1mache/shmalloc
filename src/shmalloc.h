@@ -91,54 +91,6 @@ static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 size)
     return returned;
 }
 
-static MetaHeader* find_free_block(u64 size)
-{
-    assert(size > 0 && "find_free_block: size <= 0");
-
-    if(!free_list_head) 
-    {
-        return NULL;
-    }
-
-    MetaHeader* current = free_list_head;
-    while(current)
-    {
-        if(current->free && current->size >= size)
-        {
-            current->free = FALSE;
-            // identify it as allocated
-             current->_debug = DEBUG_MAGIC;
-
-
-            // need to split?
-            if((current->size - size) > MIN_ALLOC_SIZE + META_SIZE)
-            {
-                // node that holds rest of space
-                MetaHeader* rest = (MetaHeader*)((byte*)current + META_SIZE + current->size);
-                meta_header_init(rest, current->size - size);
-                
-                // add new node to list
-                rest->prev = current;
-                if(current->next)
-                {
-                    current->next->prev = rest;
-                }
-                current->next = rest;
-
-                // update size
-                current->size = size;
-            }
-
-            
-            // TODO: look at the next block if larger?  
-            return current;
-        }
-        current = current->next;
-    }
-
-    return current;
-}
-
 // wipes everything in between. doesnt update freelist. callers responsiblity.
 static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
 {
@@ -160,6 +112,70 @@ static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
     // merge
     // size = all space in between headers + merged header size and merged size 
     to->size = ((byte*)merged - (byte*)(to+1)) + (META_SIZE + merged->size);  
+}
+
+static MetaHeader* find_free_block(u64 size)
+{
+    assert(size > 0 && "find_free_block: size <= 0");
+
+    if(!free_list_head) 
+    {
+        return NULL;
+    }
+
+    MetaHeader* current = free_list_head;
+    while(current)
+    {
+        if(current->free && current->size >= size)
+        {
+            current->free = FALSE;
+            // identify it as allocated
+            current->_debug = DEBUG_MAGIC;
+
+            // can split?
+            if((current->size - size) > MIN_ALLOC_SIZE + META_SIZE)
+            {
+                // node that holds rest of space
+                MetaHeader* rest = (MetaHeader*)((byte*)current + META_SIZE + current->size);
+                meta_header_init(rest, current->size - size);
+                
+                // add new node to list
+                rest->prev = current;
+                if(current->next)
+                {
+                    current->next->prev = rest;
+                }
+                current->next = rest;
+
+                // update size
+                current->size = size;
+            }
+
+            break; // found
+        }
+        // can merge with next in list?
+        else if(current->free)
+        {
+            u64 total_free_space = current->size;
+            MetaHeader* it = current;
+            while(it->next && it->next->free && total_free_space < size)
+            {
+                total_free_space += META_SIZE + it->next->size;
+                it = it->next;
+            }
+            assert(it && "find_free_block: merge iterator is NULL");
+            
+            if(total_free_space >= size)
+            {
+                mergeBlocks(current, it);
+                break; // found
+            }
+        }
+
+        current = current->next;
+    }
+
+    return current;
 }
 
 void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
@@ -216,15 +232,7 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     MetaHeader* freed_node = (MetaHeader*)((byte*)ptr - META_SIZE);
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     freed_node->_debug = 0; // to catch freed nodes
-    
-    // TODO: move to alloc?
-    // if node has next node that is free we can merge their blocks' free space
-    if(freed_node->next && freed_node->next->free) 
-    {
-        mergeBlocks(freed_node, freed_node->next);
-    }
 
-    // after merge this can be false even tho was true on previous if statement.
     // special case for last in list:
     if(!freed_node->next)
     {

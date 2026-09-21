@@ -227,8 +227,42 @@ void test_middle_merge_reuse()
         free_buffered(&buffer, ptrs[i]);
     }
     free_buffered(&buffer, merged_ptr);
-
+    
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
+    printf("All freed\n");
+}
+
+void test_block_merge()
+{
+    printf("TEST: test_block_merge\n");
+    
+    byte internal_buffer[TEST_BUFFER_SIZE];
+    MemBuffer buffer;
+
+    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+
+    void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
+    int num_ptrs = 0;
+
+    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    while(ptr)
+    {
+        ptrs[num_ptrs] = ptr;
+        ++num_ptrs;
+        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    }
+    printf("%d ptrs fit into the buffer\n", num_ptrs);
+
+    for(int i = 0; i < num_ptrs-1; i++)
+    {
+        free_buffered(&buffer,ptrs[i]);
+    }
+    
+    void* reused_ptr = shmalloc_buffered(&buffer, (num_ptrs-1) * TEST_ALLOCATION);
+
+    assert((byte*)reused_ptr == (byte*)(buffer.start) + META_SIZE && "Not reused correctly");
+
+    free_all(&buffer);
     printf("All freed\n");
 }
 
