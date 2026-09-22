@@ -38,9 +38,9 @@ void  free_all(MemBuffer* buffer);
 #define DEBUG_MAGIC 777777
 
 // head of the free list
-static MetaHeader* free_list_head = NULL;
+static MetaHeader* llist_head = NULL;
 // last node in the free list
-static MetaHeader* free_list_last = NULL;
+static MetaHeader* llist_last = NULL;
 
 void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity)
 {
@@ -77,22 +77,22 @@ static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 size)
     buffer->end += allocated_bytes;
 
     // update free list last
-    if(!free_list_last)
+    if(!llist_last)
     {
-        free_list_head = free_list_last = returned;
+        llist_head = llist_last = returned;
     }
     else
     {
-        returned->prev = free_list_last;
-        free_list_last->next = returned;
-        free_list_last = returned;
+        returned->prev = llist_last;
+        llist_last->next = returned;
+        llist_last = returned;
     }
 
     return returned;
 }
 
 // wipes everything in between. doesnt update freelist. callers responsiblity.
-static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
+static MetaHeader* mergeBlocks(MetaHeader* header0, MetaHeader* header1)
 {
     // asserts because internal function, should crash if used wrong
     assert(header0 && "mergeBlocks recieved NULL header0");
@@ -112,18 +112,20 @@ static void mergeBlocks(MetaHeader* header0, MetaHeader* header1)
     // merge
     // size = all space in between headers + merged header size and merged size 
     to->size = ((byte*)merged - (byte*)(to+1)) + (META_SIZE + merged->size);  
+
+    return to;
 }
 
 static MetaHeader* find_free_block(u64 size)
 {
     assert(size > 0 && "find_free_block: size <= 0");
 
-    if(!free_list_head) 
+    if(!llist_head) 
     {
         return NULL;
     }
 
-    MetaHeader* current = free_list_head;
+    MetaHeader* current = llist_head;
     while(current)
     {
         if(current->free && current->size >= size)
@@ -188,7 +190,7 @@ void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
     // align to WORD size
     u64 size = ALIGN_UP(requested_bytes, sizeof(void*));
     MetaHeader* ret_address;
-    if(!free_list_head)
+    if(!llist_head)
     {
         ret_address = alloc_new_block(buffer, size);
         // function internally updated free list
@@ -233,6 +235,17 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     freed_node->_debug = 0; // to catch freed nodes
 
+    // if prev block is free, merge them
+    if(freed_node->prev && freed_node->prev->free)
+    {
+        // if this is the tail
+        if(freed_node == llist_last) 
+        {
+            llist_last = freed_node->prev;
+        }
+        freed_node = mergeBlocks(freed_node, freed_node->prev);
+    }
+    
     // if next block is free, merge them.
     if(freed_node->next && freed_node->next->free)
     {
@@ -246,26 +259,26 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
         assert(buffer->end - allocated_bytes >= buffer->start && "Something went wrong, request free of bigger size than we have");
         buffer->end -= allocated_bytes;
         // we deleted last so update tail
-        free_list_last = freed_node->prev;
+        llist_last = freed_node->prev;
         
-        // move free_list_last to last non free node 
-        while(free_list_last && free_list_last->free)
+        // move llist_last to last non free node 
+        while(llist_last && llist_last->free)
         {
-            free_list_last = free_list_last->prev;
+            llist_last = llist_last->prev;
         }
         
         //update buffer->end
-        if(!free_list_last)
+        if(!llist_last)
         {
             //special case when freed the only node
             buffer->end = buffer->start;
-            free_list_head = NULL; //free list empty
+            llist_head = NULL; //free list empty
         }
         else
         {
             //                                  move past header   move past block
-            buffer->end = (byte*)(free_list_last) + META_SIZE + free_list_last->size; 
-            free_list_last->next = NULL; // cut off free tailing nodes
+            buffer->end = (byte*)(llist_last) + META_SIZE + llist_last->size; 
+            llist_last->next = NULL; // cut off free tailing nodes
         }
     }
 
@@ -282,7 +295,7 @@ void free_all(MemBuffer* buffer)
     }
 
     buffer->end = buffer->start;
-    free_list_head = free_list_last = NULL;
+    llist_head = llist_last = NULL;
 }
 
 #endif // SHMALLOC_IMPLEMENTATION
