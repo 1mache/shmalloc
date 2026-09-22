@@ -12,25 +12,25 @@ void test_continous_allocations()
     printf("TEST: test_continous_allocations\n");
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
+    MemArena buffer;
 
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        free_buffered(&buffer, ptrs[i]);
+        arena_free(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
@@ -48,14 +48,14 @@ void test_continous_different_allocations()
     u32 cur_alloc_size = min_alloc_size;
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
+    MemArena buffer;
 
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
@@ -64,7 +64,7 @@ void test_continous_different_allocations()
         u64 how_much = min_alloc_size + (pcg32_random() % (max_alloc_size - min_alloc_size));
         printf("Requested shmalloc of %ld bytes\n", how_much); 
         byte* tmp = buffer.end;
-        ptr = shmalloc_buffered(&buffer, how_much);
+        ptr = arena_shmalloc(&buffer, how_much);
         if(ptr)
         {
             printf("Actually allocated %ld of data\n", (u64)(buffer.end-tmp)-META_SIZE);
@@ -74,7 +74,7 @@ void test_continous_different_allocations()
 
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        free_buffered(&buffer, ptrs[i]);
+        arena_free(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
@@ -87,18 +87,18 @@ void test_noncontinous_free()
     pcg32_seed_random(time(NULL), getpid());
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    MemArena buffer;
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
     
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
@@ -114,7 +114,7 @@ void test_noncontinous_free()
     // free in shuffled order
     for(int i = num_ptrs-1; i >= 0; --i)
     {
-        free_buffered(&buffer, ptrs[i]);
+        arena_free(&buffer, ptrs[i]);
     }
 
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
@@ -127,18 +127,18 @@ void test_noncontinous_allocations()
     pcg32_seed_random(time(NULL), getpid());
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    MemArena buffer;
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
     
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
@@ -158,19 +158,19 @@ void test_noncontinous_allocations()
     {
         if(i % 2 == 0|| num_allocations == 0)
         {
-            free_buffered(&buffer, ptrs[i]);
+            arena_free(&buffer, ptrs[i]);
             printf("Freed on address %lx\n", (u64)(ptrs[i]));
             ptrs[i] = NULL;
         }
         else
         {
             num_allocations--;
-            ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+            ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
             printf("Allocation landed on address %lx\n", (u64)ptr);
         }
     } 
 
-    free_all(&buffer);
+    free_arena(&buffer);
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
 }
@@ -180,19 +180,19 @@ void test_middle_merge_reuse()
     printf("TEST: test_middle_merge_reuse\n");
 
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
+    MemArena buffer;
 
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
@@ -203,18 +203,18 @@ void test_middle_merge_reuse()
     if (mid == 0 || mid+1 >= num_ptrs-1)
     {
         printf("Insufficient num_ptr for test. Freeing\n");
-        free_all(&buffer);
+        free_arena(&buffer);
         return;
     }
 
     void* expected_addr = ptrs[mid];
 
-    free_buffered(&buffer, ptrs[mid + 1]);
-    free_buffered(&buffer, ptrs[mid]);
+    arena_free(&buffer, ptrs[mid + 1]);
+    arena_free(&buffer, ptrs[mid]);
 
     // the two freed x-byte blocks (2x-byte + 2 headers of space) should merge into
     // one free block big enough for a single 2x-byte allocation
-    void* merged_ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION * 2);
+    void* merged_ptr = arena_shmalloc(&buffer, TEST_ALLOCATION * 2);
 
     assert(merged_ptr == expected_addr && "128b allocation did not land in the merged middle gap");
 
@@ -224,9 +224,9 @@ void test_middle_merge_reuse()
     for(int i = 0; i < num_ptrs; ++i)
     {
         if(i == mid || i == mid + 1) continue; // already freed
-        free_buffered(&buffer, ptrs[i]);
+        arena_free(&buffer, ptrs[i]);
     }
-    free_buffered(&buffer, merged_ptr);
+    arena_free(&buffer, merged_ptr);
     
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
@@ -237,32 +237,32 @@ void test_block_merge()
     printf("TEST: test_block_merge\n");
     
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
+    MemArena buffer;
 
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
 
-    void* ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    void* ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ptrs[num_ptrs] = ptr;
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer\n", num_ptrs);
 
     for(int i = 0; i < num_ptrs-1; i++)
     {
-        free_buffered(&buffer,ptrs[i]);
+        arena_free(&buffer,ptrs[i]);
     }
     
-    void* reused_ptr = shmalloc_buffered(&buffer, (num_ptrs-1) * TEST_ALLOCATION);
+    void* reused_ptr = arena_shmalloc(&buffer, (num_ptrs-1) * TEST_ALLOCATION);
 
     assert((byte*)reused_ptr == (byte*)(buffer.start) + META_SIZE && "Not reused correctly");
 
-    free_all(&buffer);
+    free_arena(&buffer);
     printf("All freed\n");
 }
 
@@ -270,23 +270,23 @@ void test_block_split()
 {
     printf("TEST: test_block_split\n");
     byte internal_buffer[TEST_BUFFER_SIZE];
-    MemBuffer buffer;
-    membuffer_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    MemArena buffer;
+    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
     
-    void* ptr = shmalloc_buffered(&buffer, TEST_BUFFER_SIZE - META_SIZE);
-    free_buffered(&buffer, ptr);
+    void* ptr = arena_shmalloc(&buffer, TEST_BUFFER_SIZE - META_SIZE);
+    arena_free(&buffer, ptr);
 
     int num_ptrs = 0;
-    ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+    ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     while(ptr)
     {
         ++num_ptrs;
-        ptr = shmalloc_buffered(&buffer, TEST_ALLOCATION);
+        ptr = arena_shmalloc(&buffer, TEST_ALLOCATION);
     }
     printf("%d ptrs fit into the buffer thanks to splitting\n", num_ptrs);
 
 
-    free_all(&buffer);
+    free_arena(&buffer);
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
 }

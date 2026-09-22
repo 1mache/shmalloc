@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <assert.h>
+#include <sys/mman.h>
+#include <unistd.h>
 #include "types.h"
 
 typedef struct MetaHeader
@@ -18,17 +20,17 @@ typedef struct MetaHeader
 // alligned due to struct allignment
 #define META_SIZE sizeof(MetaHeader)
 
-typedef struct MemBuffer
+typedef struct MemArena
 {
     byte* start;
     byte* end;
     u64   capacity;
-} MemBuffer;
+} MemArena;
 
-void  membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity);
-void* shmalloc_buffered(MemBuffer* buffer ,u64 requested_bytes);
-void  free_buffered(MemBuffer* buffer ,void* ptr);
-void  free_all(MemBuffer* buffer);
+void  memarena_init(MemArena* arena, byte* resource, u64 capacity);
+void* arena_shmalloc(MemArena* arena ,u64 requested_bytes);
+void  arena_free(MemArena* arena ,void* ptr);
+void  free_arena(MemArena* arena);
 
 #endif //SHMALLOC_H 
 
@@ -44,11 +46,11 @@ static MetaHeader* llist_head = NULL;
 // last node in the free list
 static MetaHeader* llist_last = NULL;
 
-void membuffer_init(MemBuffer* buffer, byte* resource, u64 capacity)
+void memarena_init(MemArena* arena, byte* resource, u64 capacity)
 {
-    buffer->start    = resource;
-    buffer->end      = resource;
-    buffer->capacity = capacity;
+    arena->start    = resource;
+    arena->end      = resource;
+    arena->capacity = capacity;
 }
 
 static void meta_header_init(MetaHeader* header, u64 size)
@@ -62,21 +64,21 @@ static void meta_header_init(MetaHeader* header, u64 size)
     header->_debug = DEBUG_MAGIC;
 }
 
-static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 size)
+static MetaHeader* alloc_new_block(MemArena* arena, u64 size)
 {
     assert(size > 0 && "alloc_new_block: size <= 0");
 
     u64 allocated_bytes = size + META_SIZE;
 
-    if((buffer->end - buffer->start) + allocated_bytes > buffer->capacity)
+    if((arena->end - arena->start) + allocated_bytes > arena->capacity)
     {
         return NULL; // don't have space for allocation of this size 
     }
 
-    // start of header = current buffer tail
-    MetaHeader* returned = (MetaHeader*)buffer->end;
+    // start of header = current arena tail
+    MetaHeader* returned = (MetaHeader*)arena->end;
     meta_header_init(returned, size);
-    buffer->end += allocated_bytes;
+    arena->end += allocated_bytes;
 
     // update free list last
     if(!llist_last)
@@ -94,12 +96,12 @@ static MetaHeader* alloc_new_block(MemBuffer* buffer, u64 size)
 }
 
 // wipes everything in between. doesnt update freelist. callers responsiblity.
-static MetaHeader* mergeBlocks(MetaHeader* header0, MetaHeader* header1)
+static MetaHeader* merge_blocks(MetaHeader* header0, MetaHeader* header1)
 {
     // asserts because internal function, should crash if used wrong
-    assert(header0 && "mergeBlocks recieved NULL header0");
-    assert(header1 && "mergeBlocks recieved NULL header1");
-    assert(header0 != header1 && "mergeBlocks recieved same header");
+    assert(header0 && "merge_blocks recieved NULL header0");
+    assert(header1 && "merge_blocks recieved NULL header1");
+    assert(header0 != header1 && "merge_blocks recieved same header");
     
     MetaHeader* to     = MIN(header0, header1);
     MetaHeader* merged = MAX(header0, header1);
@@ -171,7 +173,7 @@ static MetaHeader* find_free_block(u64 size)
             
             if(total_free_space >= size)
             {
-                mergeBlocks(current, it);
+                merge_blocks(current, it);
                 break; // found
             }
         }
@@ -182,7 +184,7 @@ static MetaHeader* find_free_block(u64 size)
     return current;
 }
 
-void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
+void* arena_shmalloc(MemArena* arena, u64 requested_bytes)
 {
     if(requested_bytes <= 0)
     {
@@ -194,7 +196,7 @@ void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
     MetaHeader* ret_address;
     if(!llist_head)
     {
-        ret_address = alloc_new_block(buffer, size);
+        ret_address = alloc_new_block(arena, size);
         // function internally updated free list
     }
     else
@@ -202,7 +204,7 @@ void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
         ret_address = find_free_block(size);
         if(!ret_address)
         {
-            ret_address = alloc_new_block(buffer, size);
+            ret_address = alloc_new_block(arena, size);
         }
     }
 
@@ -217,19 +219,19 @@ void* shmalloc_buffered(MemBuffer* buffer, u64 requested_bytes)
     return ret_address;
 }
 
-void free_buffered(MemBuffer* buffer ,void* ptr)
+void arena_free(MemArena* arena ,void* ptr)
 {
     if(!ptr) 
     {
         return;
     }
-    if(!buffer->start || !buffer->end)
+    if(!arena->start || !arena->end)
     {
-        return; // invalid buffer
+        return; // invalid arena
     } 
-    if(buffer->start >= buffer->end) 
+    if(arena->start >= arena->end) 
     {
-        return; // empty buffer
+        return; // empty arena
     }
     
     // go back 1 header size from given ptr
@@ -245,21 +247,21 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
         {
             llist_last = freed_node->prev;
         }
-        freed_node = mergeBlocks(freed_node, freed_node->prev);
+        freed_node = merge_blocks(freed_node, freed_node->prev);
     }
     
     // if next block is free, merge them.
     if(freed_node->next && freed_node->next->free)
     {
-        mergeBlocks(freed_node, freed_node->next);
+        merge_blocks(freed_node, freed_node->next);
     }
 
     // special case for last in list:
     if(!freed_node->next)
     {
         u64 allocated_bytes = freed_node->size + META_SIZE;
-        assert(buffer->end - allocated_bytes >= buffer->start && "Something went wrong, request free of bigger size than we have");
-        buffer->end -= allocated_bytes;
+        assert(arena->end - allocated_bytes >= arena->start && "Something went wrong, request free of bigger size than we have");
+        arena->end -= allocated_bytes;
         // we deleted last so update tail
         llist_last = freed_node->prev;
         
@@ -269,17 +271,17 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
             llist_last = llist_last->prev;
         }
         
-        //update buffer->end
+        //update arena->end
         if(!llist_last)
         {
             //special case when freed the only node
-            buffer->end = buffer->start;
+            arena->end = arena->start;
             llist_head = NULL; //free list empty
         }
         else
         {
             //                                  move past header   move past block
-            buffer->end = (byte*)(llist_last) + META_SIZE + llist_last->size; 
+            arena->end = (byte*)(llist_last) + META_SIZE + llist_last->size; 
             llist_last->next = NULL; // cut off free tailing nodes
         }
     }
@@ -288,15 +290,15 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     freed_node->free = TRUE;
 }
 
-void free_all(MemBuffer* buffer)
+void free_arena(MemArena* arena)
 {
-    if(!buffer || buffer->end == buffer->start || buffer->capacity == 0)
+    if(!arena || arena->end == arena->start || arena->capacity == 0)
     {
         // nothing to free
         return;
     }
 
-    buffer->end = buffer->start;
+    arena->end = arena->start;
     llist_head = llist_last = NULL;
 }
 

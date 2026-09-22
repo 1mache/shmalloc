@@ -22,9 +22,9 @@ int main()
     printf("Meta size is %ld\n", META_SIZE);
     printf("Buffer initialized with buffer size %ld\n", (u64)BUFFER_SIZE);
     byte internal_buffer[BUFFER_SIZE];
-    MemBuffer buffer;
+    MemArena buffer;
 
-    membuffer_init(&buffer, internal_buffer ,BUFFER_SIZE);
+    memarena_init(&buffer, internal_buffer ,BUFFER_SIZE);
     
     byte* ptr = NULL;
     while(TRUE)
@@ -41,7 +41,7 @@ int main()
         if(ch == ALLOC_KEY)
         {
             printf("Allocating 64 bytes...");
-            ptr = (byte*)shmalloc_buffered(&buffer, 64);
+            ptr = (byte*)arena_shmalloc(&buffer, 64);
             if(ptr == NULL) printf("No more buffer space\n");
             else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - buffer.start), buffer.capacity);
         }
@@ -50,7 +50,7 @@ int main()
             if(!ptr) printf("Recent ptr not recorded or already freed");
             else
             {
-                free_buffered(&buffer, ptr);
+                arena_free(&buffer, ptr);
                 printf("Great success! Left %ld / %ld bytes\n", (buffer.end - buffer.start), buffer.capacity);
                 ptr = NULL;
             }
