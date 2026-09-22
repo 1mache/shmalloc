@@ -15,8 +15,8 @@ typedef struct MetaHeader
     b8 free;
 } MetaHeader;
 
-#define ALIGN_UP(n,a) (((n) + ((a)-1)) & ~((a)-1))
-#define META_SIZE ALIGN_UP(sizeof(MetaHeader),sizeof(void*))
+// alligned due to struct allignment
+#define META_SIZE sizeof(MetaHeader)
 
 typedef struct MemBuffer
 {
@@ -36,6 +36,8 @@ void  free_all(MemBuffer* buffer);
 
 #define MIN_ALLOC_SIZE 32
 #define DEBUG_MAGIC 777777
+
+#define ALIGN_UP(n,a) (((n) + ((a)-1)) & ~((a)-1))
 
 // head of the free list
 static MetaHeader* llist_head = NULL;
