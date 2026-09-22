@@ -233,6 +233,12 @@ void free_buffered(MemBuffer* buffer ,void* ptr)
     assert(freed_node->_debug == DEBUG_MAGIC && "Free of corrupted ptr requested");
     freed_node->_debug = 0; // to catch freed nodes
 
+    // if next block is free, merge them.
+    if(freed_node->next && freed_node->next->free)
+    {
+        mergeBlocks(freed_node, freed_node->next);
+    }
+
     // special case for last in list:
     if(!freed_node->next)
     {
