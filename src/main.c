@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include "shmalloc.h"
+#include <assert.h>
 #include "prng.h"
 #include "tests.c"
 
-#define ARENA_SIZE Kb(1)
+#define ARENA_SIZE Kb(4)
+#define ALLOC_SIZE 64
 
 #define ENTER_KEY 10
 #define ALLOC_KEY 65
@@ -22,10 +24,12 @@ int main()
     printf("Meta size is %ld\n", META_SIZE);
     MemArena arena;
     
-    memarena_init(&arena, Kb(2));
+    memarena_init(&arena, ARENA_SIZE);
+    assert(arena.capacity == (u64)ARENA_SIZE && "Pick an ARENA_SIZE that is multiple of page size");
     printf("Arena initialized with arena size %ld\n", arena.capacity);
     
-    byte* ptr = NULL;
+    byte* ptrs[ARENA_SIZE/ALLOC_SIZE];
+    int lastptr = -1;
     while(TRUE)
     {
         u8 dump   = getchar();
@@ -40,18 +44,18 @@ int main()
         if(ch == ALLOC_KEY)
         {
             printf("Allocating 64 bytes...");
-            ptr = (byte*)arena_shmalloc(&arena, 64);
-            if(ptr == NULL) printf("No more arena space\n");
-            else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - arena.start), arena.capacity);
+            ptrs[++lastptr] = (byte*)arena_shmalloc(&arena, 64);
+            if(ptrs[lastptr] == NULL) printf("No more arena space\n");
+            else printf("Great success! Used %ld / %ld bytes\n", (ptrs[lastptr] + ALLOC_SIZE - arena.start), arena.capacity);
         }
         if(ch == FREE_KEY)
         {
-            if(!ptr) printf("Recent ptr not recorded or already freed");
+            if(lastptr < 0) printf("Empty arena!\n");
             else
             {
-                arena_free(&arena, ptr);
+                arena_free(&arena, ptrs[lastptr--]);
                 printf("Free! Great success! Left %ld / %ld bytes\n", (arena.end - arena.start), arena.capacity);
-                ptr = NULL;
+                ptrs[lastptr+1] = NULL;
             }
         }
     }

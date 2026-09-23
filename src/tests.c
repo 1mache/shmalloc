@@ -45,7 +45,6 @@ void test_continous_different_allocations()
     
     u32 min_alloc_size = TEST_ALLOCATION;
     u32 max_alloc_size = TEST_ALLOCATION * 4;
-    u32 cur_alloc_size = min_alloc_size;
 
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
