@@ -3,7 +3,7 @@
 #include "prng.h"
 #include "tests.c"
 
-#define BUFFER_SIZE 128
+#define ARENA_SIZE Kb(1)
 
 #define ENTER_KEY 10
 #define ALLOC_KEY 65
@@ -20,11 +20,10 @@ int main()
     test_block_split();
     
     printf("Meta size is %ld\n", META_SIZE);
-    printf("Buffer initialized with buffer size %ld\n", (u64)BUFFER_SIZE);
-    byte internal_buffer[BUFFER_SIZE];
-    MemArena buffer;
-
-    memarena_init(&buffer, internal_buffer ,BUFFER_SIZE);
+    MemArena arena;
+    
+    memarena_init(&arena, Kb(2));
+    printf("Arena initialized with arena size %ld\n", arena.capacity);
     
     byte* ptr = NULL;
     while(TRUE)
@@ -41,22 +40,24 @@ int main()
         if(ch == ALLOC_KEY)
         {
             printf("Allocating 64 bytes...");
-            ptr = (byte*)arena_shmalloc(&buffer, 64);
-            if(ptr == NULL) printf("No more buffer space\n");
-            else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - buffer.start), buffer.capacity);
+            ptr = (byte*)arena_shmalloc(&arena, 64);
+            if(ptr == NULL) printf("No more arena space\n");
+            else printf("Great success! Used %ld / %ld bytes\n", (ptr + 64 - arena.start), arena.capacity);
         }
         if(ch == FREE_KEY)
         {
             if(!ptr) printf("Recent ptr not recorded or already freed");
             else
             {
-                arena_free(&buffer, ptr);
-                printf("Great success! Left %ld / %ld bytes\n", (buffer.end - buffer.start), buffer.capacity);
+                arena_free(&arena, ptr);
+                printf("Free! Great success! Left %ld / %ld bytes\n", (arena.end - arena.start), arena.capacity);
                 ptr = NULL;
             }
         }
-
     }
+
+    memarena_free_all(&arena);
+    memarena_destroy(&arena);
     
     return 0;
 }

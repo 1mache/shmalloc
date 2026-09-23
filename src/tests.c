@@ -14,7 +14,7 @@ void test_continous_allocations()
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
 
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -50,7 +50,7 @@ void test_continous_different_allocations()
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
 
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -88,7 +88,7 @@ void test_noncontinous_free()
 
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -128,7 +128,7 @@ void test_noncontinous_allocations()
 
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -170,7 +170,7 @@ void test_noncontinous_allocations()
         }
     } 
 
-    free_arena(&buffer);
+    memarena_free_all(&buffer);
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
 }
@@ -182,7 +182,7 @@ void test_middle_merge_reuse()
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
 
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -203,7 +203,7 @@ void test_middle_merge_reuse()
     if (mid == 0 || mid+1 >= num_ptrs-1)
     {
         printf("Insufficient num_ptr for test. Freeing\n");
-        free_arena(&buffer);
+        memarena_free_all(&buffer);
         return;
     }
 
@@ -239,7 +239,7 @@ void test_block_merge()
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
 
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
 
     void* ptrs[TEST_BUFFER_SIZE/TEST_ALLOCATION];
     int num_ptrs = 0;
@@ -262,7 +262,7 @@ void test_block_merge()
 
     assert((byte*)reused_ptr == (byte*)(buffer.start) + META_SIZE && "Not reused correctly");
 
-    free_arena(&buffer);
+    memarena_free_all(&buffer);
     printf("All freed\n");
 }
 
@@ -271,7 +271,7 @@ void test_block_split()
     printf("TEST: test_block_split\n");
     byte internal_buffer[TEST_BUFFER_SIZE];
     MemArena buffer;
-    memarena_init(&buffer, internal_buffer, TEST_BUFFER_SIZE);
+    memarena_init_nonown(&buffer, internal_buffer, TEST_BUFFER_SIZE);
     
     void* ptr = arena_shmalloc(&buffer, TEST_BUFFER_SIZE - META_SIZE);
     arena_free(&buffer, ptr);
@@ -286,7 +286,7 @@ void test_block_split()
     printf("%d ptrs fit into the buffer thanks to splitting\n", num_ptrs);
 
 
-    free_arena(&buffer);
+    memarena_free_all(&buffer);
     assert(buffer.start == buffer.end && "Buffer did not return to empty state");
     printf("All freed\n");
 }

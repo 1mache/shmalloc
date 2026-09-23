@@ -2,6 +2,7 @@
 #define SHMALLOC_H
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <assert.h>
 #include <sys/mman.h>
@@ -19,18 +20,22 @@ typedef struct MetaHeader
 
 // alligned due to struct allignment
 #define META_SIZE sizeof(MetaHeader)
+#define PAGE_SIZE 4096 // assumed for simplicity
 
 typedef struct MemArena
 {
     byte* start;
     byte* end;
     u64   capacity;
+    b8    owning;
 } MemArena;
 
-void  memarena_init(MemArena* arena, byte* resource, u64 capacity);
+void  memarena_init(MemArena* arena, u64 capacity);
+void  memarena_init_nonown(MemArena* arena, byte* resource, u64 capacity);
+void  memarena_destroy(MemArena* arena);
 void* arena_shmalloc(MemArena* arena ,u64 requested_bytes);
 void  arena_free(MemArena* arena ,void* ptr);
-void  free_arena(MemArena* arena);
+void  memarena_free_all(MemArena* arena);
 
 #endif //SHMALLOC_H 
 
@@ -46,11 +51,48 @@ static MetaHeader* llist_head = NULL;
 // last node in the free list
 static MetaHeader* llist_last = NULL;
 
-void memarena_init(MemArena* arena, byte* resource, u64 capacity)
+void memarena_init(MemArena* arena, u64 capacity)
+{
+    assert(sysconf(_SC_PAGE_SIZE) == PAGE_SIZE && "Weird system bro... page size not 4K");
+
+    u64 arena_size = ALIGN_UP(capacity, PAGE_SIZE);
+
+    void* ptr = mmap(NULL, arena_size, PROT_READ | PROT_WRITE, 
+                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if(ptr == (void*)-1)
+    {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    arena->start    = ptr;
+    arena->end      = ptr;
+    arena->capacity = arena_size;
+    arena->owning   = TRUE;
+}
+
+// non owning version (you manage the resource)
+void memarena_init_nonown(MemArena* arena, byte* resource, u64 capacity)
 {
     arena->start    = resource;
     arena->end      = resource;
     arena->capacity = capacity;
+    arena->owning   = FALSE;
+}
+
+// not necessary to call when non owning
+void memarena_destroy(MemArena* arena)
+{
+    if(arena->owning)
+    {
+        int retcode = munmap(arena->start, arena->capacity);
+        if(retcode == -1)
+        {
+            perror("munmap");
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 static void meta_header_init(MetaHeader* header, u64 size)
@@ -290,7 +332,7 @@ void arena_free(MemArena* arena ,void* ptr)
     freed_node->free = TRUE;
 }
 
-void free_arena(MemArena* arena)
+void memarena_free_all(MemArena* arena)
 {
     if(!arena || arena->end == arena->start || arena->capacity == 0)
     {
