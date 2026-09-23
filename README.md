@@ -40,22 +40,13 @@ void* p = arena_shmalloc(&arena, 64);
 arena_free(&arena, p);
 ```
 
-## What I learned
-
-- **`malloc` is mostly bookkeeping.** The pointer you get back is just an address a few bytes after a header. `free` steps back by the header's size to find that header again.
-- **Free is the hard part.** Allocating is easy. Getting merging with the previous block, the next block, and the tail all correct took much longer. Most of my bugs were there.
-- **Fragmentation is real.** Without splitting and merging, a buffer fills up with small unusable gaps very quickly.
-- **`brk`/`sbrk` vs `mmap`.** I learned why real allocators use both, and why picking `mmap` let me avoid conflicts with the system `malloc`.
-- **Alignment.** Rounding requests up to the word size keeps every header and pointer properly aligned.
-- **Testing allocators.** Freeing in random order and interleaving allocations with frees found bugs that simple sequential tests never did. AddressSanitizer (`debug.sh`) helped too.
-
 ## Run it
 
 ```bash
 mkdir -p out && ./build.sh && ./out/main
 ```
 
-This runs the tests, then starts a small interactive demo: type `A` + Enter to allocate, `B` + Enter to free.
+This runs the tests, then starts a small interactive demo: press up arrow + Enter to allocate, down arrow + Enter to free.
 
 ## Not done / known limits
 
