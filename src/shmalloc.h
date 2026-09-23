@@ -235,7 +235,7 @@ void* arena_shmalloc(MemArena* arena, u64 requested_bytes)
     
     // align to WORD size
     u64 size = ALIGN_UP(requested_bytes, sizeof(void*));
-    MetaHeader* ret_address;
+    MetaHeader* ret_address = NULL;
     if(!llist_head)
     {
         ret_address = alloc_new_block(arena, size);
@@ -249,16 +249,14 @@ void* arena_shmalloc(MemArena* arena, u64 requested_bytes)
             ret_address = alloc_new_block(arena, size);
         }
     }
-
-    // move forward only if actually allocated block
-    if(ret_address)
+    // couldn't allocate
+    if(!ret_address)
     {
-        // move 1 header forward 
-        ret_address += 1;
+        return NULL;
     }
-
-    // return the address of the start of memory right after header
-    return ret_address;
+    
+    // move ptr after the header 
+    return ret_address + 1;
 }
 
 void arena_free(MemArena* arena ,void* ptr)
